@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head><meta name="generator" content="Hexo 3.9.0">
+    <meta charset="UTF-8">
+
+    
+
+    
+
+    <title>基于StorageClass动态供应Kubernetes集群存储 | SsJackX</title>
+    <meta name="author" content="SsJackX">
+    <meta name="version" content="1.0.0">
+    <meta name="keywords" content>
+    <meta name="description" content="1 存储类概述Kubernetes集群管理员通过提供不同的存储类，可以满足用户不同的服务质量级别、备份策略和任意策略要求的存储需求。动态存储卷供应使用StorageClass进行实现，其允许存储卷按需被创建。如果没有动态存储供应，Kubernetes集群的管理员将不得不通过手工的方式创建新的存储卷。通过动态存储卷，Kubernetes将能够按照用户的需要，自动创建其需要的存储。基于StorageClass的动态存储供应整体过程如下所示：｛% asset_img 156592156337...">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+
+    
+    
+    <link rel="icon" href="/images/favicon.ico">
+    
+
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <main class="app">
+        <header class="header clearfix">
+    <div id="nav" class="nav">
+    <div class="nav-mobile">
+        <button id="open-panel" class="open-panel nav-mobile-item"><i class="icon-documents"></i></button>
+        <h1 class="nav-mobile-title nav-mobile-item">SsJackX</h1>
+        <button id="open-menus" class="open-panel nav-mobile-item"><i class="icon-library"></i></button>
+    </div>
+
+    <nav id="nav-inner" class="nav-inner">
+        
+            <a class="nav-item" href="/">
+                <span class="nav-text">首页</span>
+            </a>
+        
+            <a class="nav-item" href="/tags">
+                <span class="nav-text">标签</span>
+            </a>
+        
+            <a class="nav-item" href="/archives">
+                <span class="nav-text">归档</span>
+            </a>
+        
+            <a class="nav-item" href="/about">
+                <span class="nav-text">关于</span>
+            </a>
+        
+    </nav>
+</div>
+
+    <aside id="aside" class="aside">
+    <div id="aside-mask" class="aside-mask"></div>
+    <div id="aside-inner" class="aside-inner">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="Search"><button type="submit" class="search-form-submit"><i class="icon-search-stroke"></i></button><input type="hidden" name="sitesearch" value="http://yoursite.com"></form>
+
+        
+        
+        
+        
+
+        
+        <ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#1-存储类概述"><span class="toc-number">1.</span> <span class="toc-text">1 存储类概述</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#2-定义存储类"><span class="toc-number">2.</span> <span class="toc-text">2 定义存储类</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-存储分配器"><span class="toc-number">2.1.</span> <span class="toc-text">2.1 存储分配器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-参数"><span class="toc-number">2.2.</span> <span class="toc-text">2.2 参数</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-回收策略"><span class="toc-number">2.3.</span> <span class="toc-text">2.3 回收策略</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-挂载选项"><span class="toc-number">2.4.</span> <span class="toc-text">2.4 挂载选项</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#3-使用StorageClass"><span class="toc-number">3.</span> <span class="toc-text">3 使用StorageClass</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-启用动态存储分配"><span class="toc-number">3.1.</span> <span class="toc-text">3.1 启用动态存储分配</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-使用动态存储"><span class="toc-number">3.2.</span> <span class="toc-text">3.2 使用动态存储</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-默认动作"><span class="toc-number">3.3.</span> <span class="toc-text">3.3 默认动作</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#4-Ceph-RBD存储类示例"><span class="toc-number">4.</span> <span class="toc-text">4 Ceph RBD存储类示例</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-部署rbd-provisioner"><span class="toc-number">4.1.</span> <span class="toc-text">4.1 部署rbd-provisioner</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-Ceph集群访问授权"><span class="toc-number">4.2.</span> <span class="toc-text">4.2 Ceph集群访问授权</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-创建StorageClass实例"><span class="toc-number">4.3.</span> <span class="toc-text">4.3 创建StorageClass实例</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-创建PersistenetVolumeClaim实例"><span class="toc-number">4.4.</span> <span class="toc-text">4.4 创建PersistenetVolumeClaim实例</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-5-部署使用PersistenetVolumeClaim的Pod实例"><span class="toc-number">4.5.</span> <span class="toc-text">4.5 部署使用PersistenetVolumeClaim的Pod实例</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#5-参考文档"><span class="toc-number">5.</span> <span class="toc-text">5 参考文档</span></a></li></ol>
+        
+    </div>
+</aside>
+
+</header>
+
+        <div id="content" class="content"><article class="article" itemscope itemprop="blogPost">
+    
+    <header class="article-header">
+        
+        <h1 itemprop="name">
+            基于StorageClass动态供应Kubernetes集群存储
+        </h1>
+        
+        <div class="article-meta clearfix">
+            <a class="article-date" href="http://yoursite.com/2019/08/25/基于StorageClass动态供应Kubernetes集群存储/index.html">
+    
+    <i class="icon-calendar"></i>
+    
+    <time datetime="2019-08-25T11:19:48.000Z" itemprop="datePublished">2019-08-25</time>
+</a>
+
+            
+<div class="article-tag-list">
+    <i class="icon-tag"></i>
+    <a class="article-tag-link" href="/tags/ceph/">ceph</a>, <a class="article-tag-link" href="/tags/kubernetes/">kubernetes</a>
+</div>
+
+
+        </div>
+    </header>
+    
+    <section class="article-body markdown-body">
+        
+        <h2 id="1-存储类概述"><a href="#1-存储类概述" class="headerlink" title="1 存储类概述"></a>1 存储类概述</h2><p>Kubernetes集群管理员通过提供不同的存储类，可以满足用户不同的服务质量级别、备份策略和任意策略要求的存储需求。动态存储卷供应使用StorageClass进行实现，其允许存储卷按需被创建。如果没有动态存储供应，Kubernetes集群的管理员将不得不通过手工的方式创建新的存储卷。通过动态存储卷，Kubernetes将能够按照用户的需要，自动创建其需要的存储。</p>
+<p>基于StorageClass的动态存储供应整体过程如下所示：</p>
+<p>｛% asset_img 1565921563376.png 基于StorageClass的动态存储供应整体过程  %｝</p>
+<h2 id="2-定义存储类"><a href="#2-定义存储类" class="headerlink" title="2 定义存储类"></a>2 定义存储类</h2><p>每个存储类都包含：provisioner、parameters和reclaimPlolicy这三个参数域，当属于某个类的PersistentVolume需要被动态提供时，将会使用上述的参数域。</p>
+<p>存储类对象的名称非常重要，用户通过对象名称请求特定的存储类。管理员创建存储类对象时，会设置类的名称和其它的参数，存储类的对象一旦被创建，将不能被更新。管理员能够为PVC指定一个默认的存储类。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">kind: StorageClass</span><br><span class="line">apiVersion: storage.k8s.io/v1</span><br><span class="line">metadata:</span><br><span class="line">  name: standard</span><br><span class="line"># 指定存储类的供应者</span><br><span class="line">provisioner: kubernetes.io/aws-ebs</span><br><span class="line">parameters:</span><br><span class="line">  type: gp2</span><br><span class="line"># 指定回收策略</span><br><span class="line">reclaimPolicy: Retain</span><br><span class="line">mountOptions:</span><br><span class="line">  - debug</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-1-存储分配器"><a href="#2-1-存储分配器" class="headerlink" title="2.1 存储分配器"></a>2.1 存储分配器</h3><p>存储类有一个存储分配器的参数域，此参数域决定PV使用什么存储卷插件。</p>
+<p>参数必需进行设置：</p>
+<table>
+<thead>
+<tr>
+<th align="left">存储卷</th>
+<th align="left">内置存储分配器</th>
+<th align="left">配置示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="left">AWSElasticBlockStore</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#aws-ebs" target="_blank" rel="noopener">AWS EBS</a></td>
+</tr>
+<tr>
+<td align="left">AzureFile</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#azure-file" target="_blank" rel="noopener">Azure File</a></td>
+</tr>
+<tr>
+<td align="left">AzureDisk</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#azure-disk" target="_blank" rel="noopener">Azure Disk</a></td>
+</tr>
+<tr>
+<td align="left">CephFS</td>
+<td align="left">-</td>
+<td align="left">-</td>
+</tr>
+<tr>
+<td align="left">Cinder</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#openstack-cinder" target="_blank" rel="noopener">OpenStack Cinder</a></td>
+</tr>
+<tr>
+<td align="left">FC</td>
+<td align="left">-</td>
+<td align="left">-</td>
+</tr>
+<tr>
+<td align="left">Flexvolume</td>
+<td align="left">-</td>
+<td align="left">-</td>
+</tr>
+<tr>
+<td align="left">Flocker</td>
+<td align="left">✓</td>
+<td align="left">-</td>
+</tr>
+<tr>
+<td align="left">GCEPersistentDisk</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#gce-pd" target="_blank" rel="noopener">GCE PD</a></td>
+</tr>
+<tr>
+<td align="left">Glusterfs</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#glusterfs" target="_blank" rel="noopener">Glusterfs</a></td>
+</tr>
+<tr>
+<td align="left">iSCSI</td>
+<td align="left">-</td>
+<td align="left">-</td>
+</tr>
+<tr>
+<td align="left">Quobyte</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#quobyte" target="_blank" rel="noopener">Quobyte</a></td>
+</tr>
+<tr>
+<td align="left">NFS</td>
+<td align="left">-</td>
+<td align="left">-</td>
+</tr>
+<tr>
+<td align="left">RBD</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#ceph-rbd" target="_blank" rel="noopener">Ceph RBD</a></td>
+</tr>
+<tr>
+<td align="left">VsphereVolume</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#vsphere" target="_blank" rel="noopener">vSphere</a></td>
+</tr>
+<tr>
+<td align="left">PortworxVolume</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#portworx-volume" target="_blank" rel="noopener">Portworx Volume</a></td>
+</tr>
+<tr>
+<td align="left">ScaleIO</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#scaleio" target="_blank" rel="noopener">ScaleIO</a></td>
+</tr>
+<tr>
+<td align="left">StorageOS</td>
+<td align="left">✓</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#storageos" target="_blank" rel="noopener">StorageOS</a></td>
+</tr>
+<tr>
+<td align="left">Local</td>
+<td align="left">-</td>
+<td align="left"><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/#local" target="_blank" rel="noopener">Local</a></td>
+</tr>
+</tbody></table>
+<p>Kubernetes的存储类并不局限于表中的“interneal”存储分配器，“interneal”存储分配器的名称带有“kubernetes.io”前缀；也可以允许和指定外部的存储分配器，外部存储分配器通过独立的程序进行实现。外部存储分配器的作者对代码在何处生存、如何供应、如何运行、使用什么卷插件（包括Flex）等有充分的判断权，kubernetes-incubator/external-storage仓库中存在编写外部存储分配器的类库。例如，NFS不是内部的存储分配器，但也是可以使用。在kubernetes-incubator/external-storage仓库中以列表的形式展示了一些外部的存储分配器，一些第三方供应商也提供了他们自己的外部存储分配器。</p>
+<h3 id="2-2-参数"><a href="#2-2-参数" class="headerlink" title="2.2 参数"></a>2.2 参数</h3><p>存储类存在很多描述存储卷的参数，依赖不同的存储分配器可能有不同的参数。例如，对于type参数，它的值可能为gp2。当参数被省略，则使用默认的值。</p>
+<p>Ceph分布式存储RBD示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">kind: StorageClass</span><br><span class="line">apiVersion: storage.k8s.io/v3</span><br><span class="line">metadata:</span><br><span class="line">  name: fast</span><br><span class="line">provisioner: kubernetes.io/rbd</span><br><span class="line">parameters:</span><br><span class="line">  monitors: 30.36.353.305:6789</span><br><span class="line">  adminId: kube</span><br><span class="line">  adminSecretName: ceph-secret</span><br><span class="line">  adminSecretNamespace: kube-system</span><br><span class="line">  pool: kube</span><br><span class="line">  userId: kube</span><br><span class="line">  userSecretName: ceph-secret-user</span><br><span class="line">  fsType: ext4</span><br><span class="line">  imageFormat: &quot;2&quot;</span><br><span class="line">  imageFeatures: &quot;layering&quot;</span><br></pre></td></tr></table></figure>
+
+<p>参数说明：</p>
+<ul>
+<li>monitors：ceph monitor，逗号分隔，该参数是必需的。</li>
+<li>adminId：ceph客户端ID，用于在（ceph pool）中创建镜像。默认：admin</li>
+<li>adminSecretNamespace：adminSecret的namespaces。默认：default</li>
+<li>adminSecret：adminId的Secret名称，该参数是必需的。提供的secret必须有值为”kubernetes.io/rbd”的type参数。</li>
+<li>pool：ceph RBD池，默认是：”rbd”。</li>
+<li>userId：ceph客户端ID，用于映射RBD镜像（RBD IMAGE），默认：与adminId相同。</li>
+<li>userSecretName：用于映射RBD镜像的userId的ceph secret名字。它必须与PVC存在于相同的namespace中，该参数是必需的。提供的secret必须具有值为”kubernetes.io/rbd”的type参数，创建方式如下：</li>
+</ul>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">kubectl create secret generic ceph-secret --type=&quot;kubernetes.io/rbd&quot; \</span><br><span class="line">  --from-literal=key=&apos;QVFEQ1pMdFhPUnQrSmhBQUFYaERWNHJsZ3BsMmNjcDR6RFZST0E9PQ==&apos; \</span><br><span class="line">  --namespace=kube-system</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>fsType：kubernetes支持的fsType，默认：”ext4”。</li>
+<li>imageFormat：ceph RBD镜像格式，”1”或”2”，默认值是”1”。</li>
+<li>imageFeatures：这个参数是可选的，需要将imageFormat设置为”2”才能使用。当前支持的功能只有layering，默认：” “，功能不打开。</li>
+</ul>
+<h3 id="2-3-回收策略"><a href="#2-3-回收策略" class="headerlink" title="2.3 回收策略"></a>2.3 回收策略</h3><p>通过存储类创建的持久化存储卷通过reclaimPolicy参数来指定回收策略，它的值可以是Delete或者Retain，默认为Delete。对于通过手工创建的，并使用存储类进行管理的持久化存储卷，将使用任何在创建时指定的存储卷。</p>
+<h3 id="2-4-挂载选项"><a href="#2-4-挂载选项" class="headerlink" title="2.4 挂载选项"></a>2.4 挂载选项</h3><p>通过存储类动态创建的持久化存储卷，会存在一个通过mountOptions参数指定的挂载选择。如果存储卷插件不支持指定的挂载选项，则分配存储就会失败，在存储类或者PV中都不会对挂载选项进行验证，因此需要在设置时进行确认。</p>
+<h2 id="3-使用StorageClass"><a href="#3-使用StorageClass" class="headerlink" title="3 使用StorageClass"></a>3 使用StorageClass</h2><p>动态存储卷分配，基于StorageClass的API对象来实现，集群管理员能够按需定义StorageClass对象，每一个StorageClass对象能够指定一个存储卷插件（即存储分配器）。集群管理员能够在一个集群中定义各种存储卷分配器，用户不需要了解存储的细节和复杂性，就能够选择符合自己要求的存储。</p>
+<h3 id="3-1-启用动态存储分配"><a href="#3-1-启用动态存储分配" class="headerlink" title="3.1 启用动态存储分配"></a>3.1 启用动态存储分配</h3><p>为了启用动态存储分配，集群管理员需要预先为用户创建一个或者多个存储类对象。存储类对象定义了使用哪个存储分配器，以及存储分配器相关的参数。下面是存储类的一个示例，它创建一个名称为slow的存储类，使用gce存储分配器：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: storage.k8s.io/v1</span><br><span class="line">kind: StorageClass</span><br><span class="line">metadata:</span><br><span class="line">  name: slow</span><br><span class="line">provisioner: kubernetes.io/gce-pd</span><br><span class="line">parameters:</span><br><span class="line">  type: pd-standard</span><br></pre></td></tr></table></figure>
+
+<p>下面创建了一个名为“fast”的存储类，其提供类似固态磁盘的存储卷磁盘：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: storage.k8s.io/v1</span><br><span class="line">kind: StorageClass</span><br><span class="line">metadata:</span><br><span class="line">  name: fast</span><br><span class="line">provisioner: kubernetes.io/gce-pd</span><br><span class="line">parameters:</span><br><span class="line">  type: pd-ssd</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-使用动态存储"><a href="#3-2-使用动态存储" class="headerlink" title="3.2 使用动态存储"></a>3.2 使用动态存储</h3><p>用户通过在PersistentVolumeClaim中包含一个存储类，来请求动态供应存储。在Kubernetes v1.6之前的版本，通过volume.beta.kubernetes.io/storage-class注释类请求动态供应存储；在v1.6版本之后，用户应该使用PersistentVolumeClaim对象的storageClassName参数来请求动态存储。</p>
+<p>下面是请求fast存储类的持久化存储卷声明的YAML配置文件示例：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: PersistentVolumeClaim</span><br><span class="line">metadata:</span><br><span class="line">  name: claim1</span><br><span class="line">spec:</span><br><span class="line">  accessModes:</span><br><span class="line">    - ReadWriteOnce</span><br><span class="line"># 指定所使用的存储类，此存储类将会自动创建符合要求的PV</span><br><span class="line"> storageClassName: fast</span><br><span class="line"> resources:</span><br><span class="line">    requests:</span><br><span class="line">      storage: 30Gi</span><br></pre></td></tr></table></figure>
+
+<p>此声明将使用类似于固态存储磁盘，当持久化存储卷声明被删除后，存储卷也将会被销毁。</p>
+<h3 id="3-3-默认动作"><a href="#3-3-默认动作" class="headerlink" title="3.3 默认动作"></a>3.3 默认动作</h3><p>如果Kubernetes的集群中没有指定存储类，集群管理员可以通过执行下面的设置，启用默认的存储类：</p>
+<ul>
+<li>标记一个默认的StorageClass对象；</li>
+<li>确定API server中DefaultStorage接入控制器已被启用</li>
+</ul>
+<p>管理员能够通过添加storageclass.kubernetes.io/is-default-class注释，标记一个特定的StorageClass作为默认的存储类。在集群中，如果存在一个默认的StorageClass，系统将能够在不指定storageClassName 的情况下创建一个PersistentVolume，DefaultStorageClass接入控制器会自动将storageClassName指向默认的存储类。</p>
+<p>注意：在一个集群中，最多只能有一个默认的存储类，如果没有默认的存储类，那么如果在PersistentVolumeClaim中没有显示指定storageClassName，则将无法创建PersistentVolume。</p>
+<h2 id="4-Ceph-RBD存储类示例"><a href="#4-Ceph-RBD存储类示例" class="headerlink" title="4 Ceph RBD存储类示例"></a>4 Ceph RBD存储类示例</h2><h3 id="4-1-部署rbd-provisioner"><a href="#4-1-部署rbd-provisioner" class="headerlink" title="4.1 部署rbd-provisioner"></a>4.1 部署rbd-provisioner</h3><p>为StorageClass选择存储分配器名称，并在deployment.yaml文件内进行设置。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">env:</span><br><span class="line">        - name: PROVISIONER_NAME</span><br><span class="line">          value: ceph.com/rbd</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p><strong>rbd存储分配器实例完整部署文件内容如下所示：</strong></p>
+<blockquote>
+<p>ns.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: Namespace</span><br><span class="line">metadata:</span><br><span class="line">  name: ceph</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>role.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: rbac.authorization.k8s.io/v1</span><br><span class="line">kind: Role</span><br><span class="line">metadata:</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">rules:</span><br><span class="line">- apiGroups: [&quot;&quot;]</span><br><span class="line">  resources: [&quot;secrets&quot;]</span><br><span class="line">  verbs: [&quot;get&quot;]</span><br><span class="line">- apiGroups: [&quot;&quot;]</span><br><span class="line">  resources: [&quot;endpoints&quot;]</span><br><span class="line">  verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;, &quot;create&quot;, &quot;update&quot;, &quot;patch&quot;]</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>rolebinding.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: rbac.authorization.k8s.io/v1</span><br><span class="line">kind: RoleBinding</span><br><span class="line">metadata:</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">roleRef:</span><br><span class="line">  apiGroup: rbac.authorization.k8s.io</span><br><span class="line">  kind: Role</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">subjects:</span><br><span class="line">- kind: ServiceAccount</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">  namespace: ceph</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>clusterrole.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">kind: ClusterRole</span><br><span class="line">apiVersion: rbac.authorization.k8s.io/v1</span><br><span class="line">metadata:</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">rules:</span><br><span class="line">  - apiGroups: [&quot;&quot;]</span><br><span class="line">    resources: [&quot;persistentvolumes&quot;]</span><br><span class="line">    verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;, &quot;create&quot;, &quot;delete&quot;]</span><br><span class="line">  - apiGroups: [&quot;&quot;]</span><br><span class="line">    resources: [&quot;persistentvolumeclaims&quot;]</span><br><span class="line">    verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;, &quot;update&quot;]</span><br><span class="line">  - apiGroups: [&quot;storage.k8s.io&quot;]</span><br><span class="line">    resources: [&quot;storageclasses&quot;]</span><br><span class="line">    verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;]</span><br><span class="line">  - apiGroups: [&quot;&quot;]</span><br><span class="line">    resources: [&quot;events&quot;]</span><br><span class="line">    verbs: [&quot;create&quot;, &quot;update&quot;, &quot;patch&quot;]</span><br><span class="line">  - apiGroups: [&quot;&quot;]</span><br><span class="line">    resources: [&quot;services&quot;]</span><br><span class="line">    resourceNames: [&quot;kube-dns&quot;,&quot;coredns&quot;]</span><br><span class="line">    verbs: [&quot;list&quot;, &quot;get&quot;]</span><br><span class="line">  - apiGroups: [&quot;&quot;]</span><br><span class="line">    resources: [&quot;endpoints&quot;]</span><br><span class="line">    verbs: [&quot;get&quot;, &quot;list&quot;, &quot;watch&quot;, &quot;create&quot;, &quot;update&quot;, &quot;patch&quot;]</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>clusterrolebinding.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">kind: ClusterRoleBinding</span><br><span class="line">apiVersion: rbac.authorization.k8s.io/v1</span><br><span class="line">metadata:</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">subjects:</span><br><span class="line">  - kind: ServiceAccount</span><br><span class="line">    name: rbd-provisioner</span><br><span class="line">    namespace: ceph</span><br><span class="line">roleRef:</span><br><span class="line">  kind: ClusterRole</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">  apiGroup: rbac.authorization.k8s.io</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>serviceaccount.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: ServiceAccount</span><br><span class="line">metadata:</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">  namespace: ceph</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>deployment.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: extensions/v1beta1</span><br><span class="line">kind: Deployment</span><br><span class="line">metadata:</span><br><span class="line">  name: rbd-provisioner</span><br><span class="line">  namespace: ceph</span><br><span class="line">spec:</span><br><span class="line">  replicas: 1</span><br><span class="line">  strategy:</span><br><span class="line">    type: Recreate</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      labels:</span><br><span class="line">        app: rbd-provisioner</span><br><span class="line">    spec:</span><br><span class="line">      containers:</span><br><span class="line">      - name: rbd-provisioner</span><br><span class="line">        imagePullPolicy: IfNotPresent</span><br><span class="line">        image: &quot;quay.io/external_storage/rbd-provisioner:latest&quot;</span><br><span class="line">        env:</span><br><span class="line">        - name: PROVISIONER_NAME # 定义存储分配器名称，存储类通过此名称指定存储分配器</span><br><span class="line">          value: ceph.com/rbd</span><br><span class="line">      serviceAccount: rbd-provisioner</span><br></pre></td></tr></table></figure>
+
+<p>在kubernetes集群部署rbd-provisioner资源：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create -f ns.yaml</span><br><span class="line"># kubectl create -f role.yaml</span><br><span class="line"># kubectl create -f rolebinding.yaml</span><br><span class="line"># kubectl create -f clusterrole.yaml</span><br><span class="line"># kubectl create -f clusterrolebinding.yaml</span><br><span class="line"># kubectl create -f serviceaccount.yaml</span><br><span class="line"># kubectl create -f deployment.yaml</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-2-Ceph集群访问授权"><a href="#4-2-Ceph集群访问授权" class="headerlink" title="4.2 Ceph集群访问授权"></a>4.2 Ceph集群访问授权</h3><p>将ceph集群访问所需的配置文件与密钥拷贝至rbd-provisioner容器实例的/etc/ceph/目录下，操作如下所示：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"># kubectl cp ceph.conf &lt;rbd-provisioner-pod&gt;:/etc/ceph</span><br><span class="line"># kubectl cp ceph.client.admin.keyring &lt;rbd-provisioner-pod&gt;:/etc/ceph</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-创建StorageClass实例"><a href="#4-3-创建StorageClass实例" class="headerlink" title="4.3 创建StorageClass实例"></a>4.3 创建StorageClass实例</h3><p>以下是StorageClass资源配置文件，此配置文件定义了名称为standard的存储类，此存储类的分配器为ceph.com/rbd。</p>
+<blockquote>
+<p>defaultStorageClass.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">kind: StorageClass</span><br><span class="line">apiVersion: storage.k8s.io/v1</span><br><span class="line">metadata:</span><br><span class="line">  name: standard</span><br><span class="line">provisioner: ceph.com/rbd</span><br><span class="line">parameters:</span><br><span class="line">  monitors: 192.168.22.201:6789,192.168.22.202:6789,192.168.22.203:6789</span><br><span class="line">  adminId: admin</span><br><span class="line">  adminSecretName: ceph-secret</span><br><span class="line">  pool: rbd</span><br><span class="line">  userId: admin</span><br><span class="line">  userSecretName: ceph-secret</span><br><span class="line">  fsType: ext4</span><br><span class="line">  imageFormat: &quot;2&quot;</span><br><span class="line">  imageFeatures: layering</span><br></pre></td></tr></table></figure>
+
+<p>使用StorageClass资源配置文件，通过kubectl create -f命令创建StorageClass实例。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create -f defaultStorageClass.yaml</span><br></pre></td></tr></table></figure>
+
+<p>在存储实例被正确创建后，就可以创建PersistenetVolumeClaim来请求StorageClass，而StorageClass将会为PersistenetVolumeClaim自动创建一个可用PersistentVolume。</p>
+<h3 id="4-4-创建PersistenetVolumeClaim实例"><a href="#4-4-创建PersistenetVolumeClaim实例" class="headerlink" title="4.4 创建PersistenetVolumeClaim实例"></a>4.4 创建PersistenetVolumeClaim实例</h3><p>PersistenetVolumeClaim是对PersistenetVolume的声明，即PersistenetVolume为存储的提供者，而PersistenetVolumeClaim为存储的消费者。下面是PersistentVolumeClaim的资源配置文件，此配置文件通过<em>spec.storageClassName</em>字段指定所使用的存储储类。</p>
+<p>在此配置文件中，使用<em>standard</em>存储实例为PersistenetVolumeClaim创建PersistenetVolume，所要求的PersistenetVolume存储空间大小为1Gi，仅支持单个容器进行读取和写入操作。</p>
+<blockquote>
+<p>testStorageClass-pvc.yaml</p>
+</blockquote>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: v1</span><br><span class="line">kind: PersistentVolumeClaim</span><br><span class="line">metadata:</span><br><span class="line">  name: fight-pvc</span><br><span class="line">  namespace: kube-system</span><br><span class="line">spec:</span><br><span class="line">  accessModes:</span><br><span class="line">    - ReadWriteOnce</span><br><span class="line">  storageClassName: standard</span><br><span class="line">  resources:</span><br><span class="line">    requests:</span><br><span class="line">      storage: 1Gi</span><br></pre></td></tr></table></figure>
+
+<p>通过kubectl create命令创建上述的持久化存储卷声明。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create -f testStorageClass-pvc.yaml</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-5-部署使用PersistenetVolumeClaim的Pod实例"><a href="#4-5-部署使用PersistenetVolumeClaim的Pod实例" class="headerlink" title="4.5 部署使用PersistenetVolumeClaim的Pod实例"></a>4.5 部署使用PersistenetVolumeClaim的Pod实例</h3><p>定义名为testStorageClass的Pod资源配置文件，使用的镜像为busybox。基于busybox镜像的容器需要对<strong>/usr/share/busybox</strong>目录下的数据进行持久化，在YAML文件指定使用名称为fight-pvc的PersistenVolumeClaim对容器的数据进行持久化。</p>
+<p>testStorageClass.yaml</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line">apiVersion: extensions/v1beta1</span><br><span class="line">kind: Deployment</span><br><span class="line">metadata:</span><br><span class="line">  name: fight</span><br><span class="line">  namespace: kube-system</span><br><span class="line">spec:</span><br><span class="line">  replicas: 1</span><br><span class="line">  template:</span><br><span class="line">    metadata:</span><br><span class="line">      labels:</span><br><span class="line">        name: fight</span><br><span class="line">    spec:</span><br><span class="line">      containers:</span><br><span class="line">      - name: fight</span><br><span class="line">        image: busybox</span><br><span class="line">        command: [&quot;sleep&quot;, &quot;60000&quot;]</span><br><span class="line">        volumeMounts:</span><br><span class="line">        - mountPath: /usr/share/busybox</span><br><span class="line">          name: ceph-rbd-vol1</span><br><span class="line">      volumes:</span><br><span class="line">      - name: ceph-rbd-vol1</span><br><span class="line">        persistentVolumeClaim:</span><br><span class="line">            claimName: fight-pvc</span><br></pre></td></tr></table></figure>
+
+<p>通过kubectl create创建名为fight的部署实例。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"># kubectl create -f testStorageClass.yaml</span><br></pre></td></tr></table></figure>
+
+<h2 id="5-参考文档"><a href="#5-参考文档" class="headerlink" title="5 参考文档"></a>5 参考文档</h2><ul>
+<li><a href="https://kubernetes.io/docs/concepts/storage/storage-classes/" target="_blank" rel="noopener">《Storage Classes》</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/storage/dynamic-provisioning/" target="_blank" rel="noopener">《Dynamic Volume Provisioning》</a></li>
+<li><a href="https://github.com/kubernetes-incubator/external-storage/tree/master/ceph/rbd" target="_blank" rel="noopener">《rbd-provisioner》</a></li>
+</ul>
+
+        
+    </section>
+</article>
+
+
+
+<div class="comments">
+    <div id="comments"></div>
+    <script src="https://unpkg.com/gitalk/dist/gitalk.min.js"></script>
+    <script>
+    new Gitalk({
+        clientID: "7fbe80427f54741e289f",
+        clientSecret: "f34ed5fd92e54c9000bd37ba951948cb939deff5",
+        repo: "ssjackx.github.io",
+        owner: "ssjackx",
+        admin: ["ssjackx"],
+        id: "2019/08/25/基于StorageClass动态供应Kubernetes集群存储",
+        distractionFreeMode: true,
+        title: "基于StorageClass动态供应Kubernetes集群存储",
+        body: "http://yoursite.com/2019/08/25/基于StorageClass动态供应Kubernetes集群存储/",
+        labels: ["ceph","kubernetes"]
+    }).render('comments');
+    </script>
+</div>
+
+</div>
+        <footer class="footer">
+    Powered by <a href="http://hexo.io/" target="_blank">Hexo</a>, Theme by <a href="https://github.com/sanonz/hexo-theme-concise" target="_blank">Concise</a>
+
+    
+    <script>
+        var _hmt = _hmt || [];
+        (function () {
+            var hm = document.createElement("script");
+            hm.src = "https://hm.baidu.com/hm.js?fded653635670b2690fabd9b5dc72f08";
+            var s = document.getElementsByTagName("script")[0];
+            s.parentNode.insertBefore(hm, s);
+        })();
+    </script>
+    
+</footer>
+
+    </main>
+
+    <script type="text/javascript" src="https://cdn.bootcss.com/jquery/1.9.0/jquery.min.js"></script>
+    <script type="text/javascript">
+    $(function() {
+        var nodes = {
+            nav: $('#nav'),
+            aside: $('#aside'),
+            asideInner: $('#aside-inner'),
+            navInner: $('#nav-inner')
+        };
+
+        var doing = false;
+        nodes.asideInner.on('webkitAnimationEnd mozAnimationEnd oAnimationEnd oanimationend animationend', function() {
+            if (nodes.aside.hasClass('mobile-open')) {
+                nodes.aside.removeClass('mobile-open');
+            } else {
+                nodes.aside.removeClass('mobile-close panel-show');
+            }
+            doing = false;
+        });
+        $('#open-panel, #aside-mask').on('click', function() {
+            if (doing) {
+                return;
+            }
+            
+            if (nodes.aside.hasClass('panel-show')) {
+                nodes.aside.addClass('mobile-close');
+            } else {
+                nodes.aside.addClass('mobile-open panel-show');
+            }
+        });
+        $('#open-menus').on('click', function() {
+            nodes.navInner.slideToggle();
+        });
+
+        if (window.innerWidth <= 960) {
+            setTimeout(function() {
+                nodes.navInner.slideUp();
+            }, 3000);
+        }
+    });
+    </script>
+    
+        <script type="text/javascript" src="/js/scrollspy.min.js"></script>
+        <script type="text/javascript">
+        $(document.body).scrollspy({target: '#aside-inner'});
+        </script>
+    
+
+</body>
+</html>
